@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL_ID } from './models';
+
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -10,11 +12,20 @@ export interface StreamingResponse {
 
 export class ApiClient {
   private readonly baseUrl = 'https://openrouter.ai/api/v1';
-  private readonly model = 'deepseek/deepseek-chat';
   private readonly apiKey: string;
+  private readonly modelId: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, modelId?: string) {
     this.apiKey = apiKey;
+    
+    // Если явно не указана модель, пробуем загрузить из localStorage, иначе используем модель по умолчанию
+    if (modelId) {
+      this.modelId = modelId;
+    } else if (typeof window !== 'undefined') {
+      this.modelId = localStorage.getItem('selectedModelId') || DEFAULT_MODEL_ID;
+    } else {
+      this.modelId = DEFAULT_MODEL_ID;
+    }
   }
 
   async streamChat(
@@ -30,7 +41,7 @@ export class ApiClient {
         'X-Title': 'Light Site Chat'
       },
       body: JSON.stringify({
-        model: this.model,
+        model: this.modelId,
         messages,
         stream: true,
       }),

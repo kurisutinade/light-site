@@ -52,18 +52,28 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const { name } = await request.json();
+    const { name, modelId } = await request.json();
     
-    if (!name) {
+    if (!name && !modelId) {
       return NextResponse.json(
-        { error: 'Имя чата обязательно' },
+        { error: 'Необходимо указать имя чата или ID модели' },
         { status: 400 }
       );
     }
     
+    const updateData: { name?: string, modelId?: string } = {};
+    
+    if (name) {
+      updateData.name = name;
+    }
+    
+    if (modelId) {
+      updateData.modelId = modelId;
+    }
+    
     const chat = await prisma.chat.update({
       where: { id },
-      data: { name }
+      data: updateData
     });
     
     return NextResponse.json(chat);

@@ -50,9 +50,22 @@ export const chatService = {
   },
 
   // Создать новый чат
-  createChat: async (name: string) => {
+  createChat: async (name: string, modelId?: string) => {
     const chat = await prisma.chat.create({
-      data: { name },
+      data: { 
+        name,
+        modelId: modelId
+      } as any,
+    });
+
+    return chat;
+  },
+
+  // Обновить чат
+  updateChat: async (id: string, data: { name?: string, modelId?: string }) => {
+    const chat = await prisma.chat.update({
+      where: { id },
+      data
     });
 
     return chat;

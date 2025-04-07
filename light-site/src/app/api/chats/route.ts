@@ -18,7 +18,7 @@ export async function GET() {
 // POST /api/chats - создать новый чат
 export async function POST(request: NextRequest) {
   try {
-    const { name } = await request.json();
+    const { name, modelId } = await request.json();
     
     if (!name) {
       return NextResponse.json(
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const chat = await chatService.createChat(name);
+    const chat = await chatService.createChat(name, modelId);
     return NextResponse.json(chat);
   } catch (error) {
     console.error('Error creating chat:', error);

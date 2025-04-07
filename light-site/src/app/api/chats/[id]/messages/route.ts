@@ -16,6 +16,15 @@ interface DbMessage {
   chatId: string;
 }
 
+interface DbChat {
+  id: string;
+  name: string;
+  modelId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  messages: DbMessage[];
+}
+
 // GET /api/chats/[id]/messages - получить сообщения чата
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -44,7 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Проверяем, существует ли чат
-  const chat = await chatService.getChatById(chatId);
+  const chat = await chatService.getChatById(chatId) as DbChat;
   if (!chat) {
     return NextResponse.json(
       { error: 'Чат не найден' },
@@ -53,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { content } = await request.json();
+    const { content, modelId } = await request.json();
     
     if (!content) {
       return NextResponse.json(
@@ -61,6 +70,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 400 }
       );
     }
+
+    // Получаем сохраненный в чате ID модели или используем переданный
+    const chatModelId = chat.modelId || modelId;
 
     // Сохраняем сообщение пользователя
     const userMessage = await chatService.messages.create(
@@ -77,7 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }));
 
     // Создаем экземпляр API клиента
-    const apiClient = new ApiClient(apiKey);
+    const apiClient = new ApiClient(apiKey, chatModelId);
 
     // Отправляем ответ в виде потока
     const encoder = new TextEncoder();

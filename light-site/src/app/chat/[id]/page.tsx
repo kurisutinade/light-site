@@ -72,12 +72,18 @@ export default function ChatPage() {
   const handleNewChat = async () => {
     try {
       const name = `Новый чат ${new Date().toLocaleString()}`;
+      // Получаем ID модели из localStorage
+      const selectedModelId = localStorage.getItem('selectedModelId');
+      
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ 
+          name,
+          modelId: selectedModelId 
+        }),
       });
 
       if (response.ok) {
@@ -117,6 +123,9 @@ export default function ChatPage() {
     setIsProcessing(true);
 
     try {
+      // Получаем ID выбранной модели
+      const selectedModelId = localStorage.getItem('selectedModelId');
+      
       // Добавляем сообщение пользователя в UI немедленно
       const tempUserMessage: Message = {
         id: Date.now().toString(),
@@ -144,7 +153,10 @@ export default function ChatPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ 
+          content,
+          modelId: selectedModelId 
+        }),
       });
 
       if (!response.ok) {
