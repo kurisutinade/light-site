@@ -17,6 +17,12 @@ export const AI_MODELS: AIModel[] = [
     name: 'Llama 4 Maverick',
     provider: 'Meta',
     description: 'Модель от компании Meta, имеет 400B параметров из которых 17B активных.',
+  },
+  {
+    id: 'openai/gpt-4o-mini',
+    name: 'GPT-4o Mini',
+    provider: 'OpenAI',
+    description: 'Модель от компании OpenAI, имеет 125M параметров из которых 17B активных.',
   }
 ];
 

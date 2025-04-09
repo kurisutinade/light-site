@@ -130,7 +130,7 @@ export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) 
                         </button>
                       </div>
                       <pre className="rounded-t-none rounded-b overflow-x-auto p-3" style={{ backgroundColor: "#0d1117" }}>
-                        <code id={codeId} className={`language-${match[1]} text-sm`} {...props}>
+                        <code id={codeId} className={`language-${match[1]} text-sm`} style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }} {...props}>
                           {children}
                         </code>
                       </pre>
@@ -138,7 +138,7 @@ export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) 
                   );
                 } else {
                   return (
-                    <code className="px-1 py-0.5 bg-gray-700 rounded text-base" {...props}>
+                    <code className="px-1 py-0.5 bg-gray-700 rounded text-base" style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }} {...props}>
                       {children}
                     </code>
                   );
