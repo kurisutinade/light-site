@@ -62,10 +62,12 @@ export function ChatList({ chats, activeChat, onNewChat, onDeleteChat, toggleSid
         </div>
         <button
           onClick={onNewChat}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded p-2 transition-colors"
+          className="flex items-center justify-center bg-[#262626] hover:bg-[#303030] border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white rounded-md p-2 transition-colors"
+          title="Создать новый чат"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
           </svg>
         </button>
       </div>
