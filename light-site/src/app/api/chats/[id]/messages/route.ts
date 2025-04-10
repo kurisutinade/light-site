@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chatService } from '@/lib/db';
 import { ApiClient, Message as ApiMessage } from '@/lib/api-client';
+import { WebSearchService } from '@/lib/web-search';
 
 interface RouteParams {
   params: {
@@ -24,6 +25,14 @@ interface DbChat {
   updatedAt: Date;
   messages: DbMessage[];
 }
+
+// Создаем экземпляр для веб-поиска
+const webSearchApiClient = new ApiClient(process.env.OPENROUTER_API_KEY!);
+const webSearch = new WebSearchService(
+  process.env.GOOGLE_SEARCH_API_KEY!,
+  process.env.GOOGLE_SEARCH_ENGINE_ID!,
+  webSearchApiClient
+);
 
 // GET /api/chats/[id]/messages - получить сообщения чата
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -62,7 +71,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { content, modelId } = await request.json();
+    const { content, modelId, withWebSearch } = await request.json();
     
     if (!content) {
       return NextResponse.json(
@@ -73,6 +82,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Получаем сохраненный в чате ID модели или используем переданный
     const chatModelId = chat.modelId || modelId;
+    console.log(`Using model ID: ${chatModelId}`);
+    
+    // Создаем экземпляр ApiClient с конкретной моделью для этого запроса
+    const apiClient = new ApiClient(process.env.OPENROUTER_API_KEY!, chatModelId);
 
     // Сохраняем сообщение пользователя
     const userMessage = await chatService.messages.create(
@@ -80,16 +93,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       content,
       'user'
     );
-
-    // Подготавливаем историю сообщений для отправки в API
-    const allMessages = await chatService.messages.getAll(chatId);
-    const apiMessages = allMessages.map((msg: DbMessage) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content
-    }));
-
-    // Создаем экземпляр API клиента
-    const apiClient = new ApiClient(apiKey, chatModelId);
 
     // Отправляем ответ в виде потока
     const encoder = new TextEncoder();
@@ -101,11 +104,60 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       try {
         let responseText = '';
         
-        // Обработчик для каждого фрагмента ответа
-        await apiClient.streamChat(apiMessages, (chunk) => {
-          responseText += chunk;
-          writer.write(encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`));
-        });
+        if (withWebSearch) {
+          // Режим веб-поиска: выполняем поиск и суммаризацию результатов
+          writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: "Выполняется поиск по вашему запросу...", status: "search_started" })}\n\n`));
+          
+          try {
+            const searchResults = await webSearch.search(content, 5, 10);
+            writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: "Анализирую найденную информацию...", status: "analyzing" })}\n\n`));
+            
+            responseText = await webSearch.summarizeWithSources(content, searchResults, chatModelId);
+            
+            // Отправляем ответ частями, чтобы UI обновлялся постепенно
+            const chunkSize = 50;
+            for (let i = 0; i < responseText.length; i += chunkSize) {
+              const chunk = responseText.substring(0, i + chunkSize);
+              writer.write(encoder.encode(`data: ${JSON.stringify({ chunk, status: "content" })}\n\n`));
+              // Небольшая задержка для более естественного вывода
+              await new Promise(resolve => setTimeout(resolve, 10));
+            }
+          } catch (searchError) {
+            console.error('Error during web search:', searchError);
+            writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: "Произошла ошибка при выполнении поиска. Использую стандартный режим.", status: "error" })}\n\n`));
+            
+            // Если поиск не удался, переключаемся на стандартный режим
+            // Подготавливаем историю сообщений для отправки в API
+            const allMessages = await chatService.messages.getAll(chatId);
+            const apiMessages = allMessages.map((msg: DbMessage) => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content
+            }));
+            
+            // Обработчик для каждого фрагмента ответа
+            let fallbackResponse = '';
+            await apiClient.streamChat(apiMessages, (chunk) => {
+              fallbackResponse += chunk;
+              writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: fallbackResponse, status: "content" })}\n\n`));
+            });
+            
+            responseText = fallbackResponse;
+          }
+        } else {
+          // Стандартный режим: отправляем запрос в модель с историей сообщений
+          // Подготавливаем историю сообщений для отправки в API
+          const allMessages = await chatService.messages.getAll(chatId);
+          const apiMessages = allMessages.map((msg: DbMessage) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content
+          }));
+          
+          // Обработчик для каждого фрагмента ответа
+          await apiClient.streamChat(apiMessages, (chunk) => {
+            responseText += chunk;
+            writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: responseText, status: "content" })}\n\n`));
+          });
+        }
 
         // Сохраняем полный ответ в базу данных
         if (responseText) {
@@ -121,7 +173,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         writer.close();
       } catch (error) {
         console.error('Error in stream processing:', error);
-        writer.write(encoder.encode(`data: ${JSON.stringify({ error: 'Ошибка обработки ответа' })}\n\n`));
+        writer.write(encoder.encode(`data: ${JSON.stringify({ error: 'Ошибка обработки ответа', status: "error" })}\n\n`));
         writer.close();
       }
     })();

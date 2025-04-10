@@ -117,7 +117,7 @@ export default function ChatPage() {
   };
 
   // Отправка сообщения
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, withWebSearch: boolean = false) => {
     if (!content.trim() || isProcessing) return;
 
     setIsProcessing(true);
@@ -155,7 +155,8 @@ export default function ChatPage() {
         },
         body: JSON.stringify({ 
           content,
-          modelId: selectedModelId 
+          modelId: selectedModelId,
+          withWebSearch
         }),
       });
 
@@ -189,7 +190,14 @@ export default function ChatPage() {
                   const parsed = JSON.parse(data);
                   
                   if (parsed.chunk) {
-                    accumulatedContent += parsed.chunk;
+                    // Проверяем статус сообщения
+                    if (parsed.status === 'search_started' || parsed.status === 'analyzing' || parsed.status === 'content' || parsed.status === 'error') {
+                      // Заменяем содержимое для всех типов статусных сообщений
+                      accumulatedContent = parsed.chunk;
+                    } else {
+                      // Для обратной совместимости со старым форматом
+                      accumulatedContent += parsed.chunk;
+                    }
                     
                     // Обновляем сообщение ассистента
                     setMessages(prev => 

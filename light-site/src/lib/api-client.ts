@@ -21,17 +21,31 @@ export class ApiClient {
     // Если явно не указана модель, пробуем загрузить из localStorage, иначе используем модель по умолчанию
     if (modelId) {
       this.modelId = modelId;
+      console.log(`ApiClient initialized with specified model: ${modelId}`);
     } else if (typeof window !== 'undefined') {
       this.modelId = localStorage.getItem('selectedModelId') || DEFAULT_MODEL_ID;
+      console.log(`ApiClient initialized with model from localStorage: ${this.modelId}`);
     } else {
       this.modelId = DEFAULT_MODEL_ID;
+      console.log(`ApiClient initialized with default model: ${DEFAULT_MODEL_ID}`);
     }
+  }
+
+  // Метод для получения API-ключа
+  getApiKey(): string {
+    return this.apiKey;
+  }
+  
+  // Метод для получения ID модели
+  getModelId(): string {
+    return this.modelId;
   }
 
   async streamChat(
     messages: Message[],
     onChunk: (chunk: string) => void
   ): Promise<void> {
+    console.log(`Making API request with model: ${this.modelId}`);
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {

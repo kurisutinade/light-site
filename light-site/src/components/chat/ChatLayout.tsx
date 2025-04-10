@@ -24,7 +24,7 @@ interface ChatLayoutProps {
   messages: Message[];
   activeChatId?: string;
   isProcessing?: boolean;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, withWebSearch?: boolean) => void;
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
 }
