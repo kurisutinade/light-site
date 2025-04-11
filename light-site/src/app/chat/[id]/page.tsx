@@ -23,6 +23,7 @@ export default function ChatPage() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   // Используем useParams для получения chatId
   const chatId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -34,10 +35,12 @@ export default function ChatPage() {
       if (response.ok) {
         const data = await response.json();
         setChats(data);
+        return data;
       }
     } catch (error) {
       console.error('Error fetching chats:', error);
     }
+    return [];
   };
 
   // Загрузка сообщений текущего чата
@@ -54,19 +57,57 @@ export default function ChatPage() {
         }));
         
         setMessages(messagesWithDates);
+        return messagesWithDates;
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
+    return [];
   };
 
   // Загрузка данных при монтировании компонента
   useEffect(() => {
-    fetchChats();
-    if (chatId) {
-      fetchMessages();
-    }
+    const initialize = async () => {
+      setIsReady(false);
+      await fetchChats();
+      if (chatId) {
+        await fetchMessages();
+      }
+      setIsReady(true);
+    };
+    
+    initialize();
   }, [chatId]);
+
+  // Отдельный эффект для обработки отложенного сообщения
+  useEffect(() => {
+    if (chatId && isReady && !isProcessing) {
+      // Проверяем, есть ли отложенное сообщение
+      const pendingMessage = localStorage.getItem('pendingMessage');
+      if (pendingMessage) {
+        try {
+          const pendingData = JSON.parse(pendingMessage);
+          const { content, withWebSearch, fromHomepage, fromNewChatPage } = pendingData;
+          
+          // Удаляем сообщение из localStorage сразу, чтобы избежать повторной отправки
+          localStorage.removeItem('pendingMessage');
+          
+          // Если сообщение пришло с главной страницы или страницы нового чата,
+          // даем большую задержку, чтобы чат успел корректно инициализироваться
+          const delay = (fromHomepage || fromNewChatPage) ? 800 : 100;
+          
+          console.log(`Processing pending message with delay ${delay}ms...`);
+          
+          setTimeout(() => {
+            handleSendMessage(content, withWebSearch);
+          }, delay);
+        } catch (error) {
+          console.error('Error processing pending message:', error);
+          localStorage.removeItem('pendingMessage');
+        }
+      }
+    }
+  }, [chatId, isReady, isProcessing]);
 
   // Создание нового чата
   const handleNewChat = async () => {
@@ -119,6 +160,25 @@ export default function ChatPage() {
   // Отправка сообщения
   const handleSendMessage = async (content: string, withWebSearch: boolean = false) => {
     if (!content.trim() || isProcessing) return;
+    
+    // Проверка наличия chatId
+    if (!chatId) {
+      console.error('Cannot send message: chatId is missing');
+      return;
+    }
+    
+    // Проверка, существует ли чат с таким ID
+    const chatExists = chats.some(chat => chat.id === chatId);
+    if (!chatExists) {
+      console.error(`Chat with ID ${chatId} does not exist in the list of chats`);
+      // Попробуем перепроверить чат
+      const updatedChats = await fetchChats();
+      if (!updatedChats.some((chat: Chat) => chat.id === chatId)) {
+        console.error(`Chat with ID ${chatId} still not found after refresh`);
+        router.push('/');
+        return;
+      }
+    }
 
     setIsProcessing(true);
 
@@ -147,6 +207,8 @@ export default function ChatPage() {
       
       setMessages(prev => [...prev, assistantMessage]);
 
+      console.log(`Sending message to chat ${chatId}: ${content.substring(0, 30)}...`);
+
       // Отправляем запрос на сервер
       const response = await fetch(`/api/chats/${chatId}/messages`, {
         method: 'POST',
@@ -161,7 +223,7 @@ export default function ChatPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        throw new Error(`Failed to send message: ${response.status}`);
       }
 
       if (response.headers.get('Content-Type')?.includes('text/event-stream')) {
@@ -251,6 +313,10 @@ export default function ChatPage() {
       fetchChats();
     } catch (error) {
       console.error('Error sending message:', error);
+      // Если чат не найден, перенаправляем на главную страницу
+      if (error instanceof Error && error.message.includes('404')) {
+        router.push('/');
+      }
     } finally {
       setIsProcessing(false);
     }

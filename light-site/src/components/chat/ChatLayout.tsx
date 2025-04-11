@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChatList } from './ChatList';
 import { ChatWindow } from './ChatWindow';
 import { MessageInput } from './MessageInput';
+import { WelcomeInput } from './WelcomeInput';
 
 interface Chat {
   id: string;
@@ -39,6 +40,8 @@ export function ChatLayout({
   onDeleteChat,
 }: ChatLayoutProps) {
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const isEmptyChat = messages.length === 0;
+  const shouldShowCenteredInput = isEmptyChat && (!activeChatId || activeChatId === 'new');
 
   // Загружаем сохраненное состояние при первой загрузке
   useEffect(() => {
@@ -83,9 +86,21 @@ export function ChatLayout({
           </div>
         )}
         
-        <ChatWindow messages={messages} isLoading={isProcessing} />
+        <ChatWindow 
+          messages={messages} 
+          isLoading={isProcessing} 
+          showCenteredInput={shouldShowCenteredInput} 
+        />
         
-        <MessageInput onSendMessage={onSendMessage} disabled={isProcessing} />
+        {shouldShowCenteredInput ? (
+          <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center justify-center">
+            <div className="pointer-events-auto w-full max-w-2xl">
+              <WelcomeInput onSendMessage={onSendMessage} disabled={isProcessing} />
+            </div>
+          </div>
+        ) : (
+          <MessageInput onSendMessage={onSendMessage} disabled={isProcessing} />
+        )}
       </div>
     </div>
   );

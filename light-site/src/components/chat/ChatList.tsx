@@ -61,7 +61,7 @@ export function ChatList({ chats, activeChat, onNewChat, onDeleteChat, toggleSid
           </button>
         </div>
         <button
-          onClick={onNewChat}
+          onClick={() => router.push('/chat/new')}
           className="flex items-center justify-center bg-[#262626] hover:bg-[#303030] border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white rounded-md p-2 transition-colors"
           title="Создать новый чат"
         >

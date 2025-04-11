@@ -17,9 +17,10 @@ interface Message {
   createdAt: Date;
 }
 
-export default function Home() {
+export default function NewChatPage() {
   const router = useRouter();
   const [chats, setChats] = useState<Chat[]>([]);
+  const emptyMessages: Message[] = [];
 
   // Загрузка списка чатов
   const fetchChats = async () => {
@@ -38,16 +39,20 @@ export default function Home() {
     fetchChats();
   }, []);
 
-  // Создание нового чата
   const handleNewChat = async () => {
     try {
       const name = `Новый чат ${new Date().toLocaleString()}`;
+      const selectedModelId = localStorage.getItem('selectedModelId');
+      
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ 
+          name,
+          modelId: selectedModelId 
+        }),
       });
 
       if (response.ok) {
@@ -59,7 +64,6 @@ export default function Home() {
     }
   };
 
-  // Удаление чата
   const handleDeleteChat = async (id: string) => {
     try {
       const response = await fetch(`/api/chats/${id}`, {
@@ -74,13 +78,10 @@ export default function Home() {
     }
   };
 
-  // Заглушки для ChatLayout
-  const emptyMessages: Message[] = [];
   const handleSendMessage = async (content: string, withWebSearch: boolean = false) => {
     try {
       // Создаем новый чат
       const name = `Новый чат ${new Date().toLocaleString()}`;
-      // Получаем ID модели из localStorage
       const selectedModelId = localStorage.getItem('selectedModelId');
       
       const response = await fetch('/api/chats', {
@@ -101,7 +102,7 @@ export default function Home() {
         localStorage.setItem('pendingMessage', JSON.stringify({
           content,
           withWebSearch,
-          fromHomepage: true
+          fromNewChatPage: true
         }));
         
         router.push(`/chat/${chat.id}`);
@@ -121,4 +122,4 @@ export default function Home() {
       onDeleteChat={handleDeleteChat}
     />
   );
-}
+} 

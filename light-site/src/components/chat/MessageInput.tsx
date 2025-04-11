@@ -59,14 +59,14 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
               onClick={toggleWebSearch}
               disabled={disabled}
               className={`
-                p-2 rounded-full transition-all bg-white
+                p-2 rounded-full transition-all
                 ${disabled
                   ? 'opacity-50 cursor-not-allowed'
                   : 'hover:opacity-90'
                 }
                 ${withWebSearch
-                  ? 'text-blue-600 shadow-sm ring-1 ring-blue-600 opacity-100'
-                  : 'text-gray-500 opacity-50'
+                  ? 'bg-blue-600 text-white opacity-100'
+                  : 'bg-white text-gray-500 opacity-50'
                 }
               `}
               aria-label="Поиск в интернете"
