@@ -134,12 +134,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               content: msg.content
             }));
             
-            // Обработчик для каждого фрагмента ответа
+            // Обработчик для каждого фрагмента ответа с таймаутом и повторными попытками
             let fallbackResponse = '';
-            await apiClient.streamChat(apiMessages, (chunk) => {
-              fallbackResponse += chunk;
-              writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: fallbackResponse, status: "content" })}\n\n`));
-            });
+            await apiClient.streamChat(
+              apiMessages, 
+              (chunk) => {
+                fallbackResponse += chunk;
+                writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: fallbackResponse, status: "content" })}\n\n`));
+              },
+              { 
+                retries: 1, 
+                timeout: 30000,
+                cacheKey: `chat_${chatId}_fallback`
+              }
+            );
             
             responseText = fallbackResponse;
           }
@@ -152,11 +160,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             content: msg.content
           }));
           
-          // Обработчик для каждого фрагмента ответа
-          await apiClient.streamChat(apiMessages, (chunk) => {
-            responseText += chunk;
-            writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: responseText, status: "content" })}\n\n`));
-          });
+          // Обработчик для каждого фрагмента ответа с оптимизированными настройками
+          await apiClient.streamChat(
+            apiMessages, 
+            (chunk) => {
+              responseText += chunk;
+              writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: responseText, status: "content" })}\n\n`));
+            },
+            { 
+              retries: 1, 
+              timeout: 60000,
+              cacheKey: `chat_${chatId}_${Date.now()}`
+            }
+          );
         }
 
         // Сохраняем полный ответ в базу данных

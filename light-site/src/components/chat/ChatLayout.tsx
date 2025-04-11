@@ -76,7 +76,7 @@ export function ChatLayout({
           <div className="absolute top-4 left-4 z-10">
             <button 
               onClick={toggleSidebar} 
-              className="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded p-1.5 transition-colors shadow-lg"
+              className="text-gray-400 hover:text-white transition-colors shadow-lg"
               title="Показать панель чатов"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

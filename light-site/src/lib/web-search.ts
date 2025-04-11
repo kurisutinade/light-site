@@ -67,7 +67,7 @@ export class WebSearchService {
 
           // Используем AbortController для таймаута
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд таймаут
           
           try {
             const pageResponse = await fetch(result.link, {

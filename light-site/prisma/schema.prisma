@@ -17,16 +17,24 @@ model Chat {
   id        String    @id @default(uuid())
   name      String
   modelId   String?   // ID выбранной модели ИИ
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
   messages  Message[]
+
+  @@index([updatedAt(sort: Desc)], name: "chat_updated_at_idx")
+  @@index([createdAt], name: "chat_created_at_idx")
+  @@map("chats")
 }
 
 model Message {
   id        String   @id @default(uuid())
   content   String
   role      String   // "user" или "assistant"
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId    String
+  chatId    String   @map("chat_id")
+
+  @@index([chatId, createdAt], name: "message_chat_id_created_at_idx")
+  @@index([createdAt], name: "message_created_at_idx")
+  @@map("messages")
 }

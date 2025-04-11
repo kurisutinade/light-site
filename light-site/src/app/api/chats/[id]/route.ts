@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chatService } from '@/lib/db';
-import { PrismaClient } from '@prisma/client';
 
 interface RouteParams {
   params: {
     id: string;
   };
 }
-
-const prisma = new PrismaClient();
 
 // GET /api/chats/[id] - получить конкретный чат
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -71,10 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.modelId = modelId;
     }
     
-    const chat = await prisma.chat.update({
-      where: { id },
-      data: updateData
-    });
+    const chat = await chatService.updateChat(id, updateData);
     
     return NextResponse.json(chat);
   } catch (error) {
