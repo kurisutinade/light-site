@@ -37,26 +37,54 @@ async function updateEnvFile(key: string, value: string): Promise<boolean> {
 // POST /api/settings - обновить настройки
 export async function POST(request: NextRequest) {
   try {
-    const { openrouterApiKey } = await request.json();
+    const data = await request.json();
+    const { 
+      openrouterApiKey,
+      googleSearchApiKey,
+      googleSearchEngineId
+    } = data;
     
-    if (!openrouterApiKey) {
+    const updates = [];
+    let hasUpdates = false;
+    
+    // Обновляем ключ OpenRouter API, если он был предоставлен
+    if (openrouterApiKey) {
+      const success = await updateEnvFile('OPENROUTER_API_KEY', openrouterApiKey);
+      if (success) {
+        updates.push('OpenRouter API Key');
+        hasUpdates = true;
+      }
+    }
+    
+    // Обновляем ключ Google Search API, если он был предоставлен
+    if (googleSearchApiKey) {
+      const success = await updateEnvFile('GOOGLE_SEARCH_API_KEY', googleSearchApiKey);
+      if (success) {
+        updates.push('Google Search API Key');
+        hasUpdates = true;
+      }
+    }
+    
+    // Обновляем ID поисковой системы Google, если он был предоставлен
+    if (googleSearchEngineId) {
+      const success = await updateEnvFile('GOOGLE_SEARCH_ENGINE_ID', googleSearchEngineId);
+      if (success) {
+        updates.push('Google Search Engine ID');
+        hasUpdates = true;
+      }
+    }
+    
+    if (!hasUpdates) {
       return NextResponse.json(
-        { error: 'API ключ не предоставлен' },
+        { error: 'Не предоставлены данные для обновления' },
         { status: 400 }
       );
     }
     
-    // Обновляем .env файл
-    const success = await updateEnvFile('OPENROUTER_API_KEY', openrouterApiKey);
-    
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Не удалось обновить настройки' },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      updated: updates
+    });
   } catch (error) {
     console.error('Error updating settings:', error);
     return NextResponse.json(
@@ -70,7 +98,9 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     return NextResponse.json({
-      hasApiKey: !!process.env.OPENROUTER_API_KEY,
+      hasOpenRouterApiKey: !!process.env.OPENROUTER_API_KEY,
+      hasGoogleSearchApiKey: !!process.env.GOOGLE_SEARCH_API_KEY,
+      hasGoogleSearchEngineId: !!process.env.GOOGLE_SEARCH_ENGINE_ID,
     });
   } catch (error) {
     console.error('Error getting settings:', error);
