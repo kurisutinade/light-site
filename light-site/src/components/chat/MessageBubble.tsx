@@ -21,6 +21,7 @@ interface CodeProps {
 
 export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  
   // Используем стабильную карту для связывания блоков кода с их ID
   const codeBlocksRef = useRef<Map<string, string>>(new Map());
   
@@ -36,6 +37,7 @@ export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) 
   const copyToClipboard = async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      
       // Устанавливаем ID скопированного блока кода
       setCopiedId(id);
       // Через 2 секунды возвращаем к исходному состоянию
@@ -99,35 +101,69 @@ export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) 
                   const codeContent = getTextContent(children);
                   const codeId = getCodeId(codeContent);
                   
+                  // Определяем язык для улучшенного отображения
+                  const language = match[1].toLowerCase();
+                  const languageNames: Record<string, string> = {
+                    'js': 'JavaScript',
+                    'ts': 'TypeScript',
+                    'jsx': 'React JSX',
+                    'tsx': 'React TSX',
+                    'py': 'Python',
+                    'python': 'Python',
+                    'java': 'Java',
+                    'cs': 'C#',
+                    'cpp': 'C++',
+                    'c': 'C',
+                    'go': 'Go',
+                    'rust': 'Rust',
+                    'php': 'PHP',
+                    'ruby': 'Ruby',
+                    'sql': 'SQL',
+                    'html': 'HTML',
+                    'css': 'CSS',
+                    'json': 'JSON',
+                    'xml': 'XML',
+                    'md': 'Markdown',
+                    'bash': 'Bash',
+                    'sh': 'Shell',
+                    'dockerfile': 'Dockerfile',
+                    'yaml': 'YAML',
+                    'yml': 'YAML',
+                  };
+                  
+                  const displayLanguage = languageNames[language] || language.toUpperCase();
+                  
                   return (
                     <div className="relative group my-4">
                       <div className="flex justify-between items-center bg-gray-700 px-3 py-1 rounded-t text-sm text-gray-300">
-                        <span>{match[1].toUpperCase()}</span>
-                        <button
-                          onClick={() => copyToClipboard(codeContent, codeId)}
-                          className={`
-                            ${copiedId === codeId ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-500'} 
-                            text-white rounded px-2 py-0.5 text-sm transition-all duration-300
-                          `}
-                          aria-label="Copy code"
-                        >
-                          {copiedId === codeId ? (
-                            <span className="flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              Скопировано
-                            </span>
-                          ) : (
-                            <span className="flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                                <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
-                              </svg>
-                              Копировать
-                            </span>
-                          )}
-                        </button>
+                        <span>{displayLanguage}</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => copyToClipboard(codeContent, codeId)}
+                            className={`
+                              ${copiedId === codeId ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-500'} 
+                              text-white rounded px-2 py-0.5 text-sm transition-all duration-300
+                            `}
+                            aria-label="Copy code"
+                          >
+                            {copiedId === codeId ? (
+                              <span className="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                                Скопировано
+                              </span>
+                            ) : (
+                              <span className="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                                  <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                                </svg>
+                                Копировать
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <pre className="rounded-t-none rounded-b overflow-x-auto p-3" style={{ backgroundColor: "#0d1117" }}>
                         <code id={codeId} className={`language-${match[1]} text-sm`} style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }} {...props}>

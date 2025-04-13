@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { ChatList } from './ChatList';
 import { ChatWindow } from './ChatWindow';
 import { MessageInput } from './MessageInput';
-import { WelcomeInput } from './WelcomeInput';
 
 interface Chat {
   id: string;
@@ -95,11 +94,21 @@ export function ChatLayout({
         {shouldShowCenteredInput ? (
           <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center justify-center">
             <div className="pointer-events-auto w-full max-w-2xl">
-              <WelcomeInput onSendMessage={onSendMessage} disabled={isProcessing} />
+              <MessageInput 
+                onSendMessage={onSendMessage} 
+                disabled={isProcessing} 
+                mode="centered"
+                autoFocus={true}
+                welcomeTitle="Чем я могу помочь?"
+              />
             </div>
           </div>
         ) : (
-          <MessageInput onSendMessage={onSendMessage} disabled={isProcessing} />
+          <MessageInput 
+            onSendMessage={onSendMessage} 
+            disabled={isProcessing} 
+            mode="inline"
+          />
         )}
       </div>
     </div>
