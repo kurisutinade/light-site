@@ -78,7 +78,7 @@ export default function NewChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string, withWebSearch: boolean = false) => {
+  const handleSendMessage = async (content: string, withWebSearch: boolean = false, withDeepThink: boolean = false) => {
     try {
       // Создаем новый чат
       const name = `Новый чат ${new Date().toLocaleString()}`;
@@ -102,6 +102,7 @@ export default function NewChatPage() {
         localStorage.setItem('pendingMessage', JSON.stringify({
           content,
           withWebSearch,
+          withDeepThink,
           fromNewChatPage: true
         }));
         

@@ -244,19 +244,94 @@ export class WebSearchService {
         });
       };
       
+      // Функция оценки релевантности и качества результатов
+      const scoreResult = (result: SearchResult, query: string): number => {
+        if (!result.content && !result.snippet) return 0;
+        
+        const content = result.content || result.snippet || '';
+        const title = result.title || '';
+        const queryTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2);
+        
+        let score = 0;
+        
+        // Оценка по наличию контента
+        if (result.content) {
+          score += 50; // Базовый бонус за наличие контента
+          
+          // Бонус за длину контента (но не слишком большой)
+          const contentLength = result.content.length;
+          if (contentLength > 300) score += 15;
+          if (contentLength > 800) score += 10;
+          if (contentLength > 1500) score += 5;
+          
+          // Штраф за слишком короткий контент
+          if (contentLength < 150) score -= 20;
+        }
+        
+        // Оценка вхождения поисковых терминов в заголовок
+        queryTerms.forEach(term => {
+          if (title.toLowerCase().includes(term)) {
+            score += 15; // Высокий бонус за совпадение в заголовке
+          }
+        });
+        
+        // Оценка вхождения поисковых терминов в контент
+        queryTerms.forEach(term => {
+          const termRegex = new RegExp(term, 'gi');
+          const matches = content.match(termRegex);
+          if (matches) {
+            // Бонус за количество совпадений, но с уменьшающейся отдачей
+            score += Math.min(25, matches.length * 3);
+            
+            // Бонус за плотность ключевых слов (соотношение совпадений к длине)
+            const density = matches.length / (content.length / 100);
+            if (density > 0.1 && density < 2) score += 10; // Оптимальная плотность
+          }
+        });
+        
+        // Оценка соседства поисковых терминов
+        if (queryTerms.length > 1) {
+          const phraseRegex = new RegExp(queryTerms.join('\\s+'), 'gi');
+          const phraseMatches = content.match(phraseRegex);
+          if (phraseMatches) {
+            // Высокий бонус за точное совпадение фразы
+            score += phraseMatches.length * 20;
+          }
+        }
+        
+        // Оценка качества источника
+        const url = result.link.toLowerCase();
+        
+        // Бонус для известных надежных доменов
+        if (url.includes('.gov') || url.includes('.edu')) score += 15;
+        if (url.includes('wikipedia.org')) score += 10;
+        
+        // Штраф для потенциально менее надежных источников
+        if (url.includes('forum') || url.includes('blog')) score -= 5;
+        
+        // Штраф за очень длинные URL (обычно менее качественные)
+        if (url.length > 100) score -= 5;
+        
+        // Бонус за HTTPS (индикатор современного сайта)
+        if (url.startsWith('https')) score += 5;
+        
+        return score;
+      };
+      
       // Обрабатываем результаты параллельно с заданным ограничением запросов
       console.log(`Starting parallel processing of ${results.length} search results with concurrency ${concurrentRequests}`);
       const processingStartTime = Date.now();
       let processedResults = await processResultsInParallel(results, concurrentRequests);
       console.log(`Parallel processing completed in ${(Date.now() - processingStartTime)/1000} seconds`);
       
-      // Сортируем результаты, ставя вперёд те, у которых есть контент
-      processedResults.sort((a, b) => {
-        // Результаты с контентом получают более высокий приоритет
-        if (a.content && !b.content) return -1;
-        if (!a.content && b.content) return 1;
-        return 0;
+      // Сортируем результаты по их оценке
+      processedResults.forEach(result => {
+        // Добавляем поле score к объекту результата
+        (result as any).score = scoreResult(result, query);
       });
+      
+      // Сортируем результаты по убыванию оценки
+      processedResults.sort((a, b) => (b as any).score - (a as any).score);
       
       // Фильтруем дублирующиеся результаты на основе содержимого
       const uniqueResults = processedResults.filter((result, index, self) => {

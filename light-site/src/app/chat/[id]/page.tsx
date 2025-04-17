@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ChatLayout } from '@/components/chat/ChatLayout';
 
@@ -15,6 +15,8 @@ interface Message {
   content: string;
   role: 'user' | 'assistant';
   createdAt: Date;
+  thinkingProcess?: string;
+  thinkingComplete?: boolean;
 }
 
 export default function ChatPage() {
@@ -24,6 +26,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Используем useParams для получения chatId
   const chatId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -87,7 +90,7 @@ export default function ChatPage() {
       if (pendingMessage) {
         try {
           const pendingData = JSON.parse(pendingMessage);
-          const { content, withWebSearch, fromHomepage, fromNewChatPage } = pendingData;
+          const { content, withWebSearch, withDeepThink, fromHomepage, fromNewChatPage } = pendingData;
           
           // Удаляем сообщение из localStorage сразу, чтобы избежать повторной отправки
           localStorage.removeItem('pendingMessage');
@@ -97,9 +100,10 @@ export default function ChatPage() {
           const delay = (fromHomepage || fromNewChatPage) ? 800 : 100;
           
           console.log(`Processing pending message with delay ${delay}ms...`);
+          console.log(`Message parameters: withWebSearch=${withWebSearch}, withDeepThink=${withDeepThink}`);
           
           setTimeout(() => {
-            handleSendMessage(content, withWebSearch);
+            handleSendMessage(content, withWebSearch, withDeepThink);
           }, delay);
         } catch (error) {
           console.error('Error processing pending message:', error);
@@ -158,7 +162,7 @@ export default function ChatPage() {
   };
 
   // Отправка сообщения
-  const handleSendMessage = async (content: string, withWebSearch: boolean = false) => {
+  const handleSendMessage = async (content: string, withWebSearch: boolean = false, withDeepThink: boolean = false) => {
     if (!content.trim() || isProcessing) return;
     
     // Проверка наличия chatId
@@ -183,6 +187,10 @@ export default function ChatPage() {
     setIsProcessing(true);
 
     try {
+      // Создаем AbortController для возможности отмены запроса
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
       // Получаем ID выбранной модели
       const selectedModelId = localStorage.getItem('selectedModelId');
       
@@ -203,11 +211,13 @@ export default function ChatPage() {
         content: '',
         role: 'assistant',
         createdAt: new Date(),
+        thinkingProcess: '' // Инициализируем поле для размышлений
       };
       
       setMessages(prev => [...prev, assistantMessage]);
 
       console.log(`Sending message to chat ${chatId}: ${content.substring(0, 30)}...`);
+      console.log(`Parameters: withWebSearch=${withWebSearch}, withDeepThink=${withDeepThink}`);
 
       // Отправляем запрос на сервер
       const response = await fetch(`/api/chats/${chatId}/messages`, {
@@ -218,67 +228,124 @@ export default function ChatPage() {
         body: JSON.stringify({ 
           content,
           modelId: selectedModelId,
-          withWebSearch
+          withWebSearch,
+          withDeepThink // Передаем параметр режима Deep Think
         }),
+        signal // Добавляем signal для возможности отмены запроса
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to send message: ${response.status}`);
+        throw new Error(`API request failed: ${response.status}`);
       }
-
+      
+      let isCancelled = false;
+      
+      // Обрабатываем ответ как поток событий
       if (response.headers.get('Content-Type')?.includes('text/event-stream')) {
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
         
         if (reader) {
           let accumulatedContent = '';
+          let accumulatedThinking = '';
           let isFirstAssistantResponse = messages.filter(m => m.role === 'assistant').length === 0;
           
           while (true) {
-            const { value, done } = await reader.read();
-            
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n\n');
-            
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                
-                if (data === '[DONE]') break;
-                
-                try {
-                  const parsed = JSON.parse(data);
+            try {
+              // Проверяем, не был ли запрос отменен
+              if (abortControllerRef.current === null) {
+                isCancelled = true;
+                break;
+              }
+              
+              const { value, done } = await reader.read();
+              
+              if (done) break;
+              
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n\n');
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
                   
-                  if (parsed.chunk) {
-                    // Проверяем статус сообщения
-                    if (parsed.status === 'search_started' || parsed.status === 'analyzing' || parsed.status === 'content' || parsed.status === 'error') {
-                      // Заменяем содержимое для всех типов статусных сообщений
-                      accumulatedContent = parsed.chunk;
-                    } else {
-                      // Для обратной совместимости со старым форматом
-                      accumulatedContent += parsed.chunk;
-                    }
+                  if (data === '[DONE]') break;
+                  
+                  try {
+                    const parsed = JSON.parse(data);
                     
-                    // Обновляем сообщение ассистента
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantMessageId 
-                          ? { ...msg, content: accumulatedContent } 
-                          : msg
-                      )
-                    );
+                    // Добавляем подробное логирование для отладки
+                    console.log(`Received message with status: ${parsed.status || 'none'}`);
+                    
+                    if (parsed.status === 'thinking_started') {
+                      console.log('Deep thinking started');
+                      // Обновляем UI для отображения начала размышлений
+                    } else if (parsed.status === 'thinking_process') {
+                      console.log(`Thinking process update, length: ${parsed.chunk?.length || 0} chars, isComplete: ${parsed.isComplete}`);
+                      // Обновляем размышления в сообщении ассистента
+                      accumulatedThinking = parsed.chunk;
+                      
+                      if (!isCancelled) {
+                        setMessages(prev => 
+                          prev.map(msg => 
+                            msg.id === assistantMessageId 
+                              ? { 
+                                  ...msg, 
+                                  thinkingProcess: accumulatedThinking,
+                                  // Добавляем к сообщению метаданные о состоянии размышления
+                                  thinkingComplete: parsed.isComplete === true 
+                                } 
+                              : msg
+                          )
+                        );
+                      }
+                    } else if (parsed.status === 'content') {
+                      console.log(`Content update, length: ${parsed.chunk?.length || 0} chars`);
+                      // Стандартное обновление содержимого сообщения
+                      accumulatedContent = parsed.chunk;
+                      
+                      if (!isCancelled) {
+                        setMessages(prev => 
+                          prev.map(msg => 
+                            msg.id === assistantMessageId 
+                              ? { ...msg, content: accumulatedContent } 
+                              : msg
+                          )
+                        );
+                      }
+                    } else if (parsed.chunk) {
+                      // Для обратной совместимости со старым форматом
+                      accumulatedContent = parsed.chunk;
+                      
+                      if (!isCancelled) {
+                        setMessages(prev => 
+                          prev.map(msg => 
+                            msg.id === assistantMessageId 
+                              ? { ...msg, content: accumulatedContent } 
+                              : msg
+                          )
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    console.error('Error parsing stream data:', e);
                   }
-                } catch (e) {
-                  console.error('Error parsing stream data:', e);
                 }
               }
+            } catch (readError) {
+              // Проверяем, была ли ошибка вызвана отменой операции
+              if (readError instanceof DOMException && readError.name === 'AbortError') {
+                console.log('Stream reading was aborted');
+                isCancelled = true;
+                break;
+              }
+              console.error('Error reading stream:', readError);
+              break;
             }
           }
           
-          // Если это первый ответ ассистента в чате, обновляем название чата
-          if (isFirstAssistantResponse && accumulatedContent) {
+          // Если это первый ответ ассистента в чате и операция не была отменена, обновляем название чата
+          if (isFirstAssistantResponse && accumulatedContent && !isCancelled) {
             // Извлекаем первое предложение или первые 50 символов для названия чата
             let chatName = accumulatedContent;
             
@@ -307,18 +374,56 @@ export default function ChatPage() {
             }
           }
         }
+      } else {
+        // ... existing code for non-stream response ...
       }
 
       // После завершения стриминга, обновляем список чатов для отображения последнего сообщения
       fetchChats();
     } catch (error) {
       console.error('Error sending message:', error);
+      // Если запрос был отменен, выводим сообщение
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log('Request was cancelled');
+        // Обновляем последнее сообщение, чтобы показать, что генерация была отменена
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.role === 'assistant' && msg.content === '' 
+              ? { ...msg, content: '_Генерация ответа была отменена._' } 
+              : msg
+          )
+        );
+      }
       // Если чат не найден, перенаправляем на главную страницу
-      if (error instanceof Error && error.message.includes('404')) {
+      else if (error instanceof Error && error.message.includes('404')) {
         router.push('/');
       }
     } finally {
       setIsProcessing(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  // Функция для отмены генерации
+  const handleCancelGeneration = () => {
+    if (abortControllerRef.current) {
+      console.log('Cancelling message generation...');
+      // Обновляем UI перед отменой, чтобы избежать гонки состояний
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.role === 'assistant' && msg.content === '' 
+            ? { ...msg, content: '_Генерация ответа была отменена._' } 
+            : msg
+        )
+      );
+      
+      try {
+        abortControllerRef.current.abort();
+      } catch (error) {
+        console.error('Error aborting request:', error);
+      } finally {
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -331,6 +436,7 @@ export default function ChatPage() {
       onSendMessage={handleSendMessage}
       onNewChat={handleNewChat}
       onDeleteChat={handleDeleteChat}
+      onCancelGeneration={handleCancelGeneration}
     />
   );
 } 

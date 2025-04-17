@@ -15,6 +15,7 @@ interface DbMessage {
   role: string;
   createdAt: Date;
   chatId: string;
+  thinkingProcess?: string;
 }
 
 interface DbChat {
@@ -51,6 +52,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // POST /api/chats/[id]/messages - отправить сообщение
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const controller = new AbortController();
+  const { signal } = controller;
+  
+  // Обработка отмены запроса клиентом
+  request.signal.addEventListener('abort', () => {
+    console.log('Request aborted by client, cancelling ongoing operations...');
+    controller.abort();
+  });
+
   const { id: chatId } = await params;
   const apiKey = process.env.OPENROUTER_API_KEY;
   
@@ -71,7 +81,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { content, modelId, withWebSearch } = await request.json();
+    const requestData = await request.json();
+    const { content, modelId } = requestData;
+    let { withWebSearch, withDeepThink } = requestData;
     
     if (!content) {
       return NextResponse.json(
@@ -103,6 +115,98 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     (async () => {
       try {
         let responseText = '';
+        let thinkingProcessText = '';
+        
+        if (withDeepThink) {
+          try {
+            console.log('Starting deep thinking process');
+            
+            // Сигнализируем клиенту о начале процесса размышлений
+            writer.write(encoder.encode(`data: ${JSON.stringify({ status: "thinking_started" })}\n\n`));
+            
+            // Получаем историю сообщений для контекста
+            const allMessages = await chatService.messages.getAll(chatId);
+            const apiMessages = allMessages.map((msg: DbMessage) => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content
+            }));
+            
+            // Получаем размышления от модели
+            let thinkingProcessText = '';
+            await apiClient.streamChat(
+              [
+                ...apiMessages, 
+                { 
+                  role: 'user',
+                  content: `Ваша задача - показать процесс размышления над вопросом: "${content}".\n\nОбратите внимание, это НЕ финальный ответ, а демонстрация вашего процесса мышления. Разбейте на шаги, выделите ключевые вопросы, рассмотрите возможные подходы и методы решения.\n\nФормат: пошаговый, структурированный процесс размышления.`
+                }
+              ], 
+              (chunk) => {
+                thinkingProcessText += chunk;
+                // Указываем, что передаются данные размышления, isComplete = false пока не завершено
+                writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: thinkingProcessText, status: "thinking_process", isComplete: false })}\n\n`));
+              },
+              { retries: 1, timeout: 60000 }
+            );
+            
+            // Отмечаем завершение размышлений
+            writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: thinkingProcessText, status: "thinking_process", isComplete: true })}\n\n`));
+            
+            console.log('Finished thinking process, generating final answer');
+            
+            // Теперь отправляем новый запрос с предыдущими размышлениями для финального ответа
+            let responseText = '';
+            await apiClient.streamChat(
+              [
+                ...apiMessages,
+                {
+                  role: 'assistant',
+                  content: `Мои размышления:\n${thinkingProcessText}`
+                },
+                {
+                  role: 'user',
+                  content: `Спасибо за размышления. Теперь дай полный, структурированный и детальный ответ на мой исходный вопрос: "${content}" с учетом этих размышлений.`
+                }
+              ],
+              (chunk) => {
+                responseText += chunk;
+                writer.write(encoder.encode(`data: ${JSON.stringify({ chunk: responseText, status: "content" })}\n\n`));
+              }
+            );
+
+            // Сохраняем сообщение с размышлениями в базу данных
+            try {
+              await chatService.messages.create(
+                chatId,
+                responseText,
+                'assistant',
+                { thinkingProcess: thinkingProcessText }
+              );
+              console.log('Successfully saved message with thinking process');
+            } catch (saveError) {
+              console.error('Error saving message with thinking process:', saveError);
+              // Резервный вариант сохранения без размышлений
+              try {
+                await chatService.messages.create(
+                  chatId,
+                  responseText,
+                  'assistant'
+                );
+              } catch (fallbackError) {
+                console.error('Error saving fallback message:', fallbackError);
+              }
+            }
+          } catch (thinkingError) {
+            console.error('Error during deep thinking:', thinkingError);
+            writer.write(encoder.encode(`data: ${JSON.stringify({ 
+              chunk: "Произошла ошибка при глубоком размышлении. Использую стандартный режим.", 
+              status: "error" 
+            })}\n\n`));
+            
+            // Если процесс размышления не удался, переключаемся на стандартный режим
+            withDeepThink = false;
+          }
+        }
         
         if (withWebSearch) {
           // Режим веб-поиска: выполняем поиск и суммаризацию результатов
@@ -151,9 +255,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             
             responseText = fallbackResponse;
           }
-        } else {
+        } else if (!withDeepThink) {
           // Стандартный режим: отправляем запрос в модель с историей сообщений
-          // Подготавливаем историю сообщений для отправки в API
           const allMessages = await chatService.messages.getAll(chatId);
           const apiMessages = allMessages.map((msg: DbMessage) => ({
             role: msg.role as 'user' | 'assistant',
@@ -173,39 +276,56 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               cacheKey: `chat_${chatId}_${Date.now()}`
             }
           );
-        }
 
-        // Сохраняем полный ответ в базу данных
-        if (responseText) {
-          await chatService.messages.create(
-            chatId,
-            responseText,
-            'assistant'
-          );
+          // Добавляем сохранение сообщения в базу данных для стандартного режима
+          if (responseText && !withDeepThink) {
+            try {
+              await chatService.messages.create(
+                chatId,
+                responseText,
+                'assistant'
+              );
+            } catch (saveError) {
+              console.error('Error saving standard message:', saveError);
+            }
+          }
         }
 
         // Завершаем поток
-        writer.write(encoder.encode('data: [DONE]\n\n'));
-        writer.close();
+        try {
+          if (!controller.signal.aborted) {
+            await writer.write(encoder.encode('data: [DONE]\n\n'));
+            await writer.close();
+          }
+        } catch (closeError) {
+          console.error('Error closing stream writer:', closeError);
+        }
       } catch (error) {
         console.error('Error in stream processing:', error);
-        writer.write(encoder.encode(`data: ${JSON.stringify({ error: 'Ошибка обработки ответа', status: "error" })}\n\n`));
-        writer.close();
+        
+        try {
+          if (!controller.signal.aborted) {
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ error: 'Ошибка обработки ответа', status: "error" })}\n\n`));
+            await writer.close();
+          }
+        } catch (closeError) {
+          console.error('Error writing error to stream:', closeError);
+        }
       }
     })();
 
-    // Возвращаем поток клиенту
-    return new NextResponse(stream.readable, {
+    return new Response(stream.readable, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       },
     });
+
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('Error processing message:', error);
     return NextResponse.json(
-      { error: 'Не удалось отправить сообщение' },
+      { error: 'Ошибка обработки сообщения' },
       { status: 500 }
     );
   }

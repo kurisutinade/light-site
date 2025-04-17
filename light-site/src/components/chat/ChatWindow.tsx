@@ -8,6 +8,8 @@ interface Message {
   content: string;
   role: 'user' | 'assistant';
   createdAt: Date;
+  thinkingProcess?: string;
+  thinkingComplete?: boolean;
 }
 
 interface ChatWindowProps {
@@ -159,6 +161,8 @@ export function ChatWindow({ messages, isLoading = false, showCenteredInput = fa
               content={message.content}
               role={message.role as 'user' | 'assistant'}
               timestamp={message.createdAt}
+              thinkingProcess={message.thinkingProcess}
+              thinkingComplete={message.thinkingComplete}
             />
           ))}
           

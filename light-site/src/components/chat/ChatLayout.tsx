@@ -24,9 +24,10 @@ interface ChatLayoutProps {
   messages: Message[];
   activeChatId?: string;
   isProcessing?: boolean;
-  onSendMessage: (message: string, withWebSearch?: boolean) => void;
+  onSendMessage: (message: string, withWebSearch?: boolean, withDeepThink?: boolean) => void;
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
+  onCancelGeneration?: () => void;
 }
 
 export function ChatLayout({
@@ -37,6 +38,7 @@ export function ChatLayout({
   onSendMessage,
   onNewChat,
   onDeleteChat,
+  onCancelGeneration,
 }: ChatLayoutProps) {
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const isEmptyChat = messages.length === 0;
@@ -96,7 +98,9 @@ export function ChatLayout({
             <div className="pointer-events-auto w-full max-w-2xl">
               <MessageInput 
                 onSendMessage={onSendMessage} 
+                onCancelGeneration={onCancelGeneration}
                 disabled={isProcessing} 
+                isProcessing={isProcessing}
                 mode="centered"
                 autoFocus={true}
                 welcomeTitle="Чем я могу помочь?"
@@ -106,7 +110,9 @@ export function ChatLayout({
         ) : (
           <MessageInput 
             onSendMessage={onSendMessage} 
+            onCancelGeneration={onCancelGeneration}
             disabled={isProcessing} 
+            isProcessing={isProcessing}
             mode="inline"
           />
         )}

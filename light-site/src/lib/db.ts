@@ -157,7 +157,12 @@ export const chatService = {
   // Функции для работы с сообщениями
   messages: {
     // Создать новое сообщение
-    create: async (chatId: string, content: string, role: 'user' | 'assistant') => {
+    create: async (
+      chatId: string, 
+      content: string, 
+      role: 'user' | 'assistant',
+      options?: { thinkingProcess?: string } // Добавляем опциональный параметр для размышлений
+    ) => {
       // Используем транзакцию для атомарного обновления чата и создания сообщения
       const [message] = await prisma.$transaction([
         prisma.message.create({
@@ -165,6 +170,7 @@ export const chatService = {
             content,
             role,
             chatId,
+            thinkingProcess: options?.thinkingProcess, // Добавляем поле thinkingProcess
           },
         }),
         prisma.chat.update({

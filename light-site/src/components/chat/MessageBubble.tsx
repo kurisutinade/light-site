@@ -4,11 +4,14 @@ import { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { ThinkingProcess } from './ThinkingProcess';
 
 interface MessageBubbleProps {
   content: string;
   role: 'user' | 'assistant';
   timestamp?: Date;
+  thinkingProcess?: string; // Содержимое размышлений для Deep Think режима
+  thinkingComplete?: boolean; // Статус завершения размышлений
 }
 
 // Пользовательский тип для функции рендеринга кода
@@ -19,7 +22,7 @@ interface CodeProps {
   [key: string]: any;
 }
 
-export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) {
+export function MessageBubble({ content, role, timestamp, thinkingProcess, thinkingComplete = false }: MessageBubbleProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
   // Используем стабильную карту для связывания блоков кода с их ID
@@ -65,6 +68,9 @@ export function MessageBubble({ content, role, timestamp }: MessageBubbleProps) 
   // Для сообщений ассистента используем полную ширину
   return (
     <div className="mb-4 group">
+      {/* Если есть размышления, отображаем их перед основным содержимым */}
+      {thinkingProcess && <ThinkingProcess content={thinkingProcess} isComplete={thinkingComplete} />}
+      
       <div className="w-full p-3 text-gray-200 text-base">
         <div className="markdown-content">
           <ReactMarkdown

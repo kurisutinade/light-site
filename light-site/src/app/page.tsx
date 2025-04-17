@@ -20,6 +20,7 @@ interface Message {
 export default function Home() {
   const router = useRouter();
   const [chats, setChats] = useState<Chat[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Загрузка списка чатов
   const fetchChats = async () => {
@@ -74,10 +75,17 @@ export default function Home() {
     }
   };
 
+  // Заглушка для отмены генерации
+  const handleCancelGeneration = () => {
+    console.log('Cancel generation called on homepage');
+    setIsProcessing(false);
+  };
+
   // Заглушки для ChatLayout
   const emptyMessages: Message[] = [];
-  const handleSendMessage = async (content: string, withWebSearch: boolean = false) => {
+  const handleSendMessage = async (content: string, withWebSearch: boolean = false, withDeepThink: boolean = false) => {
     try {
+      setIsProcessing(true);
       // Создаем новый чат
       const name = `Новый чат ${new Date().toLocaleString()}`;
       // Получаем ID модели из localStorage
@@ -101,6 +109,7 @@ export default function Home() {
         localStorage.setItem('pendingMessage', JSON.stringify({
           content,
           withWebSearch,
+          withDeepThink,
           fromHomepage: true
         }));
         
@@ -108,6 +117,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error creating chat with message:', error);
+      setIsProcessing(false);
     }
   };
 
@@ -115,10 +125,11 @@ export default function Home() {
     <ChatLayout
       chats={chats}
       messages={emptyMessages}
-      isProcessing={false}
+      isProcessing={isProcessing}
       onSendMessage={handleSendMessage}
       onNewChat={handleNewChat}
       onDeleteChat={handleDeleteChat}
+      onCancelGeneration={handleCancelGeneration}
     />
   );
 }
