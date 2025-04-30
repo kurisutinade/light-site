@@ -116,7 +116,8 @@ export function MessageInput({
 
   // Формирование контента в зависимости от режима
   const renderInput = () => (
-    <div className="relative">
+    <div className="bg-[#262626] rounded-3xl p-3">
+      {/* Поле ввода вверху */}
       <textarea
         ref={textareaRef}
         value={message}
@@ -124,100 +125,46 @@ export function MessageInput({
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         placeholder={inputPlaceholder}
-        className="w-full bg-[#262626] text-gray-200 rounded-3xl py-4 pr-24 pl-6 focus:outline-none resize-none overflow-hidden min-h-[56px]"
+        className="w-full bg-transparent text-white border-none focus:outline-none resize-none overflow-hidden min-h-[40px] py-2 px-3"
         rows={1}
         disabled={disabled}
         autoFocus={autoFocus}
       />
-      <div className="absolute right-3 bottom-3 flex items-center gap-2">
-        {/* Кнопка Deep Think */}
-        <button
-          onClick={toggleDeepThink}
-          disabled={disabled}
-          className={`
-            p-2 rounded-full transition-all flex items-center
-            ${disabled
-              ? 'opacity-50 cursor-not-allowed'
-              : 'hover:opacity-90'
-            }
-            ${withDeepThink
-              ? 'bg-purple-600 text-white opacity-100'
-              : 'bg-white text-gray-500 opacity-50'
-            }
-          `}
-          aria-label="Режим глубокого размышления"
-          title={`${withDeepThink ? "Выключить" : "Включить"} режим глубокого размышления (Ctrl+D)`}
-        >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5" 
-            viewBox="0 0 24 24" 
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+
+      {/* Кнопки внизу */}
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex gap-2">
+          {/* Кнопка Поиск */}
+          <button
+            onClick={toggleWebSearch}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm ${withWebSearch ? 'bg-[#333333] text-white' : 'text-gray-400 hover:bg-[#333333]'}`}
           >
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-            <path d="M12 8v4"></path>
-            <path d="M12 16h.01"></path>
-          </svg>
-          {withDeepThink && <span className="ml-1 text-sm">Deep Think</span>}
-        </button>
-        
-        {/* Кнопка веб-поиска */}
-        <button
-          onClick={toggleWebSearch}
-          disabled={disabled}
-          className={`
-            p-2 rounded-full transition-all flex items-center
-            ${disabled
-              ? 'opacity-50 cursor-not-allowed'
-              : 'hover:opacity-90'
-            }
-            ${withWebSearch
-              ? 'bg-blue-600 text-white opacity-100'
-              : 'bg-white text-gray-500 opacity-50'
-            }
-          `}
-          aria-label="Поиск в интернете"
-          title={`${withWebSearch ? "Выключить" : "Включить"} поиск в интернете (Ctrl+W)`}
-        >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5" 
-            viewBox="0 0 24 24" 
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span>Поиск</span>
+          </button>
+
+          {/* Кнопка Обоснуй */}
+          <button
+            onClick={toggleDeepThink}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm ${withDeepThink ? 'bg-[#333333] text-white' : 'text-gray-400 hover:bg-[#333333]'}`}
           >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
-          {withWebSearch && <span className="ml-1 text-sm">Поиск</span>}
-        </button>
-        
-        {/* Кнопка отправки/отмены генерации */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+            </svg>
+            <span>Обоснуй</span>
+          </button>
+        </div>
+
+        {/* Кнопка отправки/отмены */}
         {isProcessing ? (
           <button
             onClick={handleCancel}
-            className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-full transition-opacity"
-            aria-label="Отменить генерацию"
-            title="Отменить генерацию"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-white text-red-500"
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-5 w-5" 
-              viewBox="0 0 24 24" 
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
@@ -226,28 +173,11 @@ export function MessageInput({
           <button
             onClick={handleSend}
             disabled={!message.trim() || disabled}
-            className={`
-              p-2 bg-white rounded-full transition-opacity
-              ${!message.trim() || disabled
-                ? 'opacity-50 cursor-not-allowed'
-                : 'opacity-100 hover:opacity-90'
-              }
-            `}
-            aria-label="Отправить сообщение"
-            title="Отправить сообщение (Enter)"
+            className={`w-10 h-10 rounded-full flex items-center justify-center ${!message.trim() || disabled ? 'text-gray-500' : 'bg-white text-black'}`}
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-5 w-5 text-black" 
-              viewBox="0 0 24 24" 
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 19V5" />
-              <path d="M5 12L12 5 19 12" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
           </button>
         )}
@@ -272,7 +202,7 @@ export function MessageInput({
   // Режим inline (по умолчанию)
   return (
     <div className="p-3" style={{ backgroundColor: '#141414' }}>
-      <div className="relative max-w-4xl mx-auto">
+      <div className="relative max-w-2xl mx-auto">
         {renderInput()}
       </div>
       {ctrlPressed && (
